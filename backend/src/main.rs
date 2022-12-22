@@ -8,16 +8,23 @@ use axum::{
     routing::{get}, extract::Path, response::{Response, IntoResponse}, body::{self, Empty, Full}, http::HeaderValue
 };
 
+mod static_route;
+
+use static_route::static_route;
+
 #[derive(RustEmbed)]
 #[folder = "$CARGO_MANIFEST_DIR/static"]
 struct Asset;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let api_router = axum::Router::new()
+        .route("/foo", get(|| async {"Hello world!"}));
+
     let app = axum::Router::new()
-        .route("/", get(|| static_path(Path(String::from("index.html")))))
-        .route("/api/foo", get(|| ))
-        .route("/*path", get(static_path));
+        .nest("/api", api_router)
+        .route("/", get(|| static_route(Path(String::from("index.html")))))
+        .route("/*path", get(static_route));
 
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 3000));
 
@@ -26,25 +33,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
-}
-
-async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
-    let path = path.trim_start_matches('/');
-    println!("{}", path);
-    let mime_type = mime_guess::from_path(path).first_or_text_plain();
-
-    match Asset::get(path) {
-        None => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(body::boxed(Empty::new()))
-            .unwrap(),
-        Some(file) => Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str(mime_type.as_ref()).unwrap(),
-            )
-            .body(body::boxed(Full::from(file.data)))
-            .unwrap(),
-    }
 }
