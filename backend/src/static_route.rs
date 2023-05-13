@@ -1,9 +1,13 @@
 use axum::{response::{Response, IntoResponse}, body::{self, Empty, Full}, http::HeaderValue, extract::Path};
 use hyper::{StatusCode, header};
 
-use crate::Asset;
+use rust_embed::RustEmbed;
 
-pub async fn static_route(Path(path): Path<String>) -> impl IntoResponse {
+#[derive(RustEmbed)]
+#[folder = "$CARGO_MANIFEST_DIR/static"]
+struct Asset;
+
+pub async fn static_router(Path(path): Path<String>) -> impl IntoResponse {
     let path = path.trim_start_matches('/');
     let mime_type = mime_guess::from_path(path).first_or_text_plain();
 
